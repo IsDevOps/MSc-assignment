@@ -1,8 +1,9 @@
 terraform {
   backend "s3" {
-    bucket       = "medicate-dev-terraform-state"
-    key          = "dev/terraform.tfstate"
+    bucket       = "dev-terraform-state"
+    key          = "terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
+    use_lockfile = false
   }
 }
