@@ -7,12 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Terraform command to run (init, plan, apply, destroy)"
+        description: "Terraform command to run (plan, apply, destroy)"
         required: true
         default: "apply"
         type: choice
         options:
-          - "init"
           - "plan"
           - "apply"
           - "destroy"
@@ -38,18 +37,20 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Terraform Init
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'init' || github.event_name == 'push'
-        run: terraform init -upgrade
-
       - name: Terraform Plan
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
-        run: terraform plan -var-file="terraform.tfvars"
+        run: |
+          terraform init -upgrade
+          terraform plan -var-file="terraform.tfvars"
 
       - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
-        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' || github.event_name == 'push'
+        run: |
+          terraform init -upgrade
+          terraform apply -auto-approve -var-file="terraform.tfvars"
 
       - name: Terraform Destroy
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
-        run: terraform destroy -auto-approve -var-file="terraform.tfvars"
+        run: |
+          terraform init -upgrade
+          terraform destroy -auto-approve -var-file="terraform.tfvars"
