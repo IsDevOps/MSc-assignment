@@ -38,7 +38,9 @@ jobs:
           aws-region: us-east-1
 
       - name: Create terraform.tfvars
-        run: echo "${{ secrets.TFVARS }}" > terraform.tfvars
+        run: |
+          echo 'db_username = "${{ secrets.USERNAME }}"' > terraform.tfvars
+          echo 'db_password = "${{ secrets.PASSWORD }}"' >> terraform.tfvars  
 
       - name: Terraform Plans
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
