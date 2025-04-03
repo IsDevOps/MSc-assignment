@@ -39,17 +39,17 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        if: inputs.action == 'init'
-        run: terraform init
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'init' || github.event_name == 'push'
+        run: terraform init -upgrade
 
       - name: Terraform Plan
-        if: inputs.action == 'plan'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
         run: terraform plan -var-file="terraform.tfvars"
 
       - name: Terraform Apply
-        if: inputs.action == 'apply'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
       - name: Terraform Destroy
-        if: inputs.action == 'destroy'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
         run: terraform destroy -auto-approve -var-file="terraform.tfvars"
