@@ -13,3 +13,7 @@ module "rds" {
   subnet_ids  = module.network.subnet_ids  # ✅ Passing subnet_ids correctly
 }
 
+module "s3" {
+  source      = "../../modules/s3"
+  bucket_name = "terraform-state-dev"
+}
