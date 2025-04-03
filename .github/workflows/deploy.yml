@@ -40,7 +40,7 @@ jobs:
       - name: Create terraform.tfvars
         run: echo "${{ secrets.TFVARS }}" > terraform.tfvars
 
-      - name: Terraform Plan
+      - name: Terraform Plans
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
         run: |
           terraform init -upgrade
