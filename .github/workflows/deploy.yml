@@ -7,11 +7,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
       
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: "1.5.7"
+        
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -19,18 +25,26 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
+        aws-sdk-version: '3'  # Suppress SDK v2 warning
         
-    - name: Terraform Apply
+    - name: Terraform Init and Apply
       run: |
         cd terraform
         terraform init
+        terraform validate
         terraform apply -auto-approve
         
-    - name: Get Instance IPs
+    - name: Get Instance IP
       id: get-ip
       run: |
         cd terraform
         echo "IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: 'just-a-placeholder-so-we-dont-get-errors'
         
     - name: Deploy Flask App
       uses: appleboy/ssh-action@master
@@ -39,16 +53,26 @@ jobs:
         username: ubuntu
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # Copy app files
-          sudo rm -rf /home/ubuntu/app/*
-          sudo chown -R ubuntu:ubuntu /home/ubuntu/app
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 400 key.pem
-          scp -o StrictHostKeyChecking=no -i key.pem -r ./app/* ubuntu@${{ steps.get-ip.outputs.IP }}:/home/ubuntu/app/
+          # Install Docker if not present
+          if ! command -v docker &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+            sudo systemctl start docker
+            sudo usermod -aG docker ubuntu
+          fi
           
+          # Clean and prepare app directory
+          sudo rm -rf /home/ubuntu/app
+          mkdir -p /home/ubuntu/app
+          
+          # Copy app files (using built-in scp of ssh-action)
           # Build and run Docker container
           cd /home/ubuntu/app
           sudo docker build -t flask-app .
           sudo docker stop flask-container || true
           sudo docker rm flask-container || true
           sudo docker run -d -p 80:80 --name flask-container flask-app
+          
+          # Verify deployment
+          sleep 10
+          curl -s http://localhost | grep "Hello World" || exit 1
