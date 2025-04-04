@@ -1,8 +1,4 @@
-# variables.tf
-variable "project_name" {
-  description = "Project name prefix for resources"
-  default     = "web-app"
-}
+
 
 # main.tf
 # VPC Configuration
