@@ -1,61 +1,53 @@
-name: Deploy to AWS
+name: Deploy Flask App
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-    inputs:
-      action:
-        description: "Terraform command to run (plan, apply, destroy)"
-        required: true
-        default: "apply"
-        type: choice
-        options:
-          - "plan"
-          - "apply"
-          - "destroy"
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
-        with:
-          terraform_version: 1.4.0
-
-      - name: Configure AWS Credential
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      - name: Create terraform.tfvars
-        run: |
-          echo 'db_username = "${{ secrets.USERNAME }}"' > terraform.tfvars
-          echo 'db_password = "${{ secrets.PASSWORD }}"' >> terraform.tfvars  
-
-      - name: Terraform Plans
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
-        run: |
-          terraform init -upgrade
-          terraform plan -var-file="terraform.tfvars"
-
-      - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' || github.event_name == 'push'
-        run: |
-          terraform init -upgrade
-          terraform apply -auto-approve -var-file="terraform.tfvars"
-
-      - name: Terraform Destroy
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
-        run: |
-          terraform init -upgrade
-          terraform destroy -auto-approve -var-file="terraform.tfvars"
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+        
+    - name: Terraform Apply
+      run: |
+        cd terraform
+        terraform init
+        terraform apply -auto-approve
+        
+    - name: Get Instance IP
+      id: get-ip
+      run: |
+        cd terraform
+        echo "IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        
+    - name: Deploy Flask App
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ steps.get-ip.outputs.IP }}
+        username: ubuntu
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          # Copy app files
+          sudo rm -rf /home/ubuntu/app/*
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/app
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 400 key.pem
+          scp -o StrictHostKeyChecking=no -i key.pem -r ./app/* ubuntu@${{ steps.get-ip.outputs.IP }}:/home/ubuntu/app/
+          
+          # Build and run Docker container
+          cd /home/ubuntu/app
+          sudo docker build -t flask-app .
+          sudo docker stop flask-container || true
+          sudo docker rm flask-container || true
+          sudo docker run -d -p 80:80 --name flask-container flask-app
