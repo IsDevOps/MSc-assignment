@@ -34,7 +34,6 @@ jobs:
         terraform validate
         terraform apply -auto-approve
         
-    `
         
     - name: Install SSH Key
       uses: shimataro/ssh-key-action@v2
