@@ -32,7 +32,7 @@ jobs:
         cd terraform
         terraform init
         terraform validate
-        terraform apply -auto-approve
+        terraform destroy -auto-approve
         
         
     - name: Install SSH Key
