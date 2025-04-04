@@ -2,7 +2,7 @@ name: Deploy Flask App
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   deploy:
@@ -25,7 +25,7 @@ jobs:
         terraform init
         terraform apply -auto-approve
         
-    - name: Get Instance IPs
+    - name: Get Instance IP
       id: get-ip
       run: |
         cd terraform
