@@ -25,7 +25,7 @@ jobs:
         terraform init
         terraform apply -auto-approve
         
-    - name: Get Instance IP
+    - name: Get Instance IPs
       id: get-ip
       run: |
         cd terraform
